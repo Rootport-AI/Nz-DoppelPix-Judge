@@ -7,8 +7,10 @@ from nz_doppelpix_judge.config import APP_TITLE
 
 
 INITIAL_ROWS = [
-    ["LPIPS", "-", "lower is more similar"],
-    ["SSIM", "-", "higher is more similar"],
+    ["LPIPS - AlexNet", "-", "lower is more similar"],
+    ["LPIPS - VGG", "-", "lower is more similar"],
+    ["SSIM - win size 7 (skimage)", "-", "higher is more similar"],
+    ["SSIM - win size 11 (Wang)", "-", "higher is more similar"],
     ["PSNR", "-", "higher is more similar"],
     ["Experimental / FID-like", "-", "lower is more similar"],
     ["CLIP Score", "-", "higher is more prompt-aligned"],
@@ -49,7 +51,7 @@ def build_demo() -> gr.Blocks:
             datatype=["str", "str", "str"],
             interactive=False,
         )
-        notes = gr.Textbox(label="Notes", lines=4, interactive=False)
+        notes = gr.Textbox(label="Notes", lines=9, interactive=False)
         prompt = gr.Textbox(label="Extracted prompt used for prompt fidelity metrics", lines=5, interactive=False)
         run.click(judge, [reference, candidate, enable_clip, enable_image_reward], [results, notes, prompt])
     return demo

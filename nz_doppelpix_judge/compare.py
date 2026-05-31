@@ -10,9 +10,11 @@ from nz_doppelpix_judge.metrics import (
     compute_clip_score,
     compute_fid,
     compute_image_reward,
-    compute_lpips,
+    compute_lpips_alex,
+    compute_lpips_vgg,
     compute_psnr,
-    compute_ssim,
+    compute_ssim_skimage,
+    compute_ssim_wang,
 )
 from nz_doppelpix_judge.prompt_metadata import PromptInfo, extract_prompt
 
@@ -42,6 +44,23 @@ def _fmt(value: float | None) -> str:
     return f"{value:.6f}"
 
 
+def _metric_settings_notes(enable_clip: bool, enable_image_reward: bool) -> list[str]:
+    notes = [
+        "Image preprocessing: PNG opened as RGB; if sizes differ, both images are resized to the smaller shared width/height with PIL Lanczos.",
+        "Metric settings: LPIPS - AlexNet=lpips.LPIPS(net='alex'), RGB [0,255] -> [0,1] -> [-1,1].",
+        "Metric settings: LPIPS - VGG=lpips.LPIPS(net='vgg'), RGB [0,255] -> [0,1] -> [-1,1].",
+        "Metric settings: SSIM - win size 7 (skimage)=skimage.structural_similarity(channel_axis=2, data_range=255, win_size=7).",
+        "Metric settings: SSIM - win size 11 (Wang)=skimage.structural_similarity(channel_axis=2, data_range=255, gaussian_weights=True, sigma=1.5, use_sample_covariance=False).",
+        "Metric settings: PSNR=skimage.peak_signal_noise_ratio(data_range=255).",
+        "Metric settings: Experimental / FID-like=torchvision Inception_V3_Weights.DEFAULT, fc=Identity; single-pair score is squared L2 distance between Inception features.",
+    ]
+    if enable_clip:
+        notes.append("Metric settings: CLIP Score=open_clip ViT-B-32 pretrained='openai', score=100*cosine(image,text).")
+    if enable_image_reward:
+        notes.append("Metric settings: ImageReward=ImageReward-v1.0.")
+    return notes
+
+
 def compare_images(
     reference_path: str,
     candidate_path: str,
@@ -66,8 +85,10 @@ def compare_images(
         notes.append("Prompt source: none. CLIP Score and ImageReward need PNG prompt metadata.")
 
     metric_calls: list[tuple[str, str, ImageMetric]] = [
-        ("LPIPS", "lower is more similar", compute_lpips),
-        ("SSIM", "higher is more similar", compute_ssim),
+        ("LPIPS - AlexNet", "lower is more similar", compute_lpips_alex),
+        ("LPIPS - VGG", "lower is more similar", compute_lpips_vgg),
+        ("SSIM - win size 7 (skimage)", "higher is more similar", compute_ssim_skimage),
+        ("SSIM - win size 11 (Wang)", "higher is more similar", compute_ssim_wang),
         ("PSNR", "higher is more similar", compute_psnr),
         ("Experimental / FID-like", "lower is more similar", compute_fid),
     ]
@@ -93,4 +114,5 @@ def compare_images(
                 rows.append(MetricRow(label, f"error: {exc}", "higher is more preferred/aligned"))
 
     notes.append("FID for a single pair is a degenerate FID/Inception-feature distance; compare it consistently across experiments.")
+    notes.extend(_metric_settings_notes(enable_clip, enable_image_reward))
     return ComparisonResult(rows=rows, notes=notes, prompt_info=prompt_info)

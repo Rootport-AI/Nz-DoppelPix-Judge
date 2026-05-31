@@ -20,18 +20,26 @@ def _lpips_tensor(image: Image.Image) -> torch.Tensor:
     return _image_tensor(image).mul(2.0).sub(1.0).to(DEVICE)
 
 
-@lru_cache(maxsize=1)
-def _lpips_model() -> Any:
+@lru_cache(maxsize=2)
+def _lpips_model(net: str) -> Any:
     try:
         import lpips
     except ImportError as exc:
         raise RuntimeError("LPIPS requires the `lpips` package. Install requirements.txt.") from exc
 
-    model = lpips.LPIPS(net="alex")
+    model = lpips.LPIPS(net=net)
     return model.to(DEVICE).eval()
 
 
-def compute_lpips(a: Image.Image, b: Image.Image) -> float:
+def compute_lpips(a: Image.Image, b: Image.Image, net: str) -> float:
     with torch.no_grad():
-        score = _lpips_model()(_lpips_tensor(a), _lpips_tensor(b))
+        score = _lpips_model(net)(_lpips_tensor(a), _lpips_tensor(b))
     return float(score.detach().cpu().item())
+
+
+def compute_lpips_alex(a: Image.Image, b: Image.Image) -> float:
+    return compute_lpips(a, b, net="alex")
+
+
+def compute_lpips_vgg(a: Image.Image, b: Image.Image) -> float:
+    return compute_lpips(a, b, net="vgg")
