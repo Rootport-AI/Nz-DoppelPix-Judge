@@ -1,0 +1,6 @@
+clip-anytorch>=2.6
+diffusers==0.29.2
+huggingface_hub>=0.33.5,<1
+open_clip_torch>=2.24
+image-reward>=1.5
+transformers==4.30.2
