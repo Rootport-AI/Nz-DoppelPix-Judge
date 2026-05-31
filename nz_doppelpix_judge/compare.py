@@ -52,22 +52,24 @@ def compare_images(
     candidate = load_rgb(candidate_path)
     reference, candidate = resize_pair(reference, candidate)
     prompt_info = extract_prompt(reference_path)
+    prompt_image_label = "Reference PNG"
     if not prompt_info.prompt:
         prompt_info = extract_prompt(candidate_path)
+        prompt_image_label = "Candidate PNG"
     prompt = prompt_info.prompt
 
     rows: list[MetricRow] = []
     notes: list[str] = []
     if prompt:
-        notes.append(f"Prompt source: {prompt_info.source} ({prompt_info.extractor})")
+        notes.append(f"Prompt source: {prompt_image_label} {prompt_info.source} ({prompt_info.extractor}). Reference PNG is preferred; Candidate PNG is used only if Reference has no prompt.")
     else:
         notes.append("Prompt source: none. CLIP Score and ImageReward need PNG prompt metadata.")
 
     metric_calls: list[tuple[str, str, ImageMetric]] = [
         ("LPIPS", "lower is more similar", compute_lpips),
         ("SSIM", "higher is more similar", compute_ssim),
-        ("FID", "lower is more similar", compute_fid),
         ("PSNR", "higher is more similar", compute_psnr),
+        ("Experimental / FID-like", "lower is more similar", compute_fid),
     ]
 
     for name, direction, func in metric_calls:
