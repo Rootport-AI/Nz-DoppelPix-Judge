@@ -61,6 +61,14 @@ def _metric_settings_notes(enable_clip: bool, enable_image_reward: bool) -> list
     return notes
 
 
+def _direction_note() -> str:
+    return (
+        "Direction guide: lower is more similar for LPIPS - AlexNet, LPIPS - VGG, "
+        "and Experimental / FID-like; higher is more similar for both SSIM variants "
+        "and PSNR; higher is better for CLIP Score and ImageReward prompt fidelity metrics."
+    )
+
+
 def compare_images(
     reference_path: str,
     candidate_path: str,
@@ -78,7 +86,7 @@ def compare_images(
     prompt = prompt_info.prompt
 
     rows: list[MetricRow] = []
-    notes: list[str] = []
+    notes: list[str] = [_direction_note()]
     if prompt:
         notes.append(f"Prompt source: {prompt_image_label} {prompt_info.source} ({prompt_info.extractor}). Reference PNG is preferred; Candidate PNG is used only if Reference has no prompt.")
     else:

@@ -12,22 +12,28 @@ from nz_doppelpix_judge.compare import compare_images
 from nz_doppelpix_judge.config import APP_TITLE
 
 
-INITIAL_ROWS = [
-    ["LPIPS - AlexNet", "-", "lower is more similar"],
-    ["LPIPS - VGG", "-", "lower is more similar"],
-    ["SSIM - win size 7 (skimage)", "-", "higher is more similar"],
-    ["SSIM - win size 11 (Wang)", "-", "higher is more similar"],
-    ["PSNR", "-", "higher is more similar"],
-    ["Experimental / FID-like", "-", "lower is more similar"],
-    ["CLIP Score", "-", "higher is more prompt-aligned"],
-    ["ImageReward", "-", "higher is more preferred/aligned"],
+RESULT_METRICS = [
+    ("LPIPS - AlexNet", "LPIPS\n- AlexNet"),
+    ("LPIPS - VGG", "LPIPS\n- VGG"),
+    ("SSIM - win size 7 (skimage)", "SSIM\n- win size 7\n(skimage)"),
+    ("SSIM - win size 11 (Wang)", "SSIM\n- win size 11\n(Wang)"),
+    ("PSNR", "PSNR"),
+    ("Experimental / FID-like", "Experimental\n/ FID-like"),
+    ("CLIP Score (reference)", "CLIP Score\n(reference)"),
+    ("CLIP Score (candidate)", "CLIP Score\n(candidate)"),
+    ("ImageReward (reference)", "ImageReward\n(reference)"),
+    ("ImageReward (candidate)", "ImageReward\n(candidate)"),
 ]
+RESULT_HEADERS = [label for _, label in RESULT_METRICS]
+INITIAL_ROWS = [["-"] * len(RESULT_HEADERS)]
 
 
 UI_CSS = """
 .preview-card img { width: 100%; max-height: 360px; object-fit: contain; display: block; }
 .preview-name { margin-top: 0.5rem; font-size: 0.9rem; opacity: 0.75; overflow-wrap: anywhere; }
 .preview-empty, .preview-error { min-height: 220px; display: flex; align-items: center; justify-content: center; opacity: 0.7; border: 1px dashed var(--border-color-primary); border-radius: 8px; padding: 1rem; }
+.doppelpix-results th { white-space: pre-line !important; line-height: 1.2; text-align: center; }
+.doppelpix-results td { text-align: center; }
 """
 
 
@@ -65,7 +71,8 @@ def judge(
         raise gr.Error("Please drop two PNG images.")
 
     result = compare_images(reference_path, candidate_path, enable_clip, enable_image_reward)
-    rows = [[row.name, row.score, row.direction] for row in result.rows]
+    scores_by_metric = {row.name: row.score for row in result.rows}
+    rows = [[scores_by_metric.get(metric_name, "-") for metric_name, _ in RESULT_METRICS]]
     prompt = result.prompt_info.prompt if enable_clip or enable_image_reward else ""
     return rows, "\n".join(result.notes), prompt
 
@@ -88,9 +95,10 @@ def build_demo() -> gr.Blocks:
         run = gr.Button("Compare", variant="primary")
         results = gr.Dataframe(
             value=INITIAL_ROWS,
-            headers=["Metric", "Score", "Direction"],
-            datatype=["str", "str", "str"],
+            headers=RESULT_HEADERS,
+            datatype=["str"] * len(RESULT_HEADERS),
             interactive=False,
+            elem_classes=["doppelpix-results"],
         )
         notes = gr.Textbox(label="Notes", lines=9, interactive=False)
         prompt = gr.Textbox(label="Extracted prompt used for prompt fidelity metrics", lines=5, interactive=False)
