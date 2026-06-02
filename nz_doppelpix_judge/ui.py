@@ -231,7 +231,7 @@ def build_demo() -> gr.Blocks:
         gr.Markdown(f"# {APP_TITLE}")
         with gr.Row():
             with gr.Column():
-                gr.Textbox(label="Reference PNG path", value="", interactive=False, placeholder="Reserved for future use")
+                gr.Textbox(label="Reference PNG path (Coming soon)", value="", interactive=False, placeholder="Reserved for future use")
                 reference = gr.File(label="Reference PNG", file_types=[".png"], type="filepath")
                 reference_preview = gr.HTML(preview_png(None), label="Reference preview")
             with gr.Column():

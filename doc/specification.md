@@ -33,7 +33,7 @@ The primary use case is evaluating image degradation caused by DiT inference acc
 
 The first view contains:
 
-- Reference PNG path textbox
+- Reference PNG path (Coming soon) textbox
   - Disabled
   - Reserved for future use
 - Reference PNG upload area
