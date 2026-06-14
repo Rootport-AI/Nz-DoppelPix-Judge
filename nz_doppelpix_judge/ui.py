@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import base64
+import csv
 import html
-from io import BytesIO
+import tempfile
+from io import BytesIO, StringIO
 from pathlib import Path
 from typing import Iterator
 
@@ -76,8 +78,12 @@ def _header_html(label: str) -> str:
     return "<br>".join(html.escape(part) for part in label.split("\n"))
 
 
+def _default_result_rows(rows: list[dict[str, str]] | None = None) -> list[dict[str, str]]:
+    return rows or [{"File name": "-", **{metric_name: "-" for metric_name, _ in RESULT_METRICS}}]
+
+
 def render_results(rows: list[dict[str, str]] | None = None) -> str:
-    result_rows = rows or [{"File name": "-", **{metric_name: "-" for metric_name, _ in RESULT_METRICS}}]
+    result_rows = _default_result_rows(rows)
     headers = "<th>File name</th>" + "".join(f"<th>{_header_html(label)}</th>" for _, label in RESULT_METRICS)
     body_rows = []
     for row in result_rows:
@@ -94,15 +100,51 @@ def render_results(rows: list[dict[str, str]] | None = None) -> str:
     )
 
 
+def _plain_cell(value: str) -> str:
+    return value.replace("\t", " ").replace("\r", " ").replace("\n", " ")
+
+
 def render_results_tsv(rows: list[dict[str, str]] | None = None) -> str:
-    result_rows = rows or [{"File name": "-", **{metric_name: "-" for metric_name, _ in RESULT_METRICS}}]
+    result_rows = _default_result_rows(rows)
     headers = ["File name", *[metric_name for metric_name, _ in RESULT_METRICS]]
     lines = ["\t".join(headers)]
     for row in result_rows:
         values = [row.get("File name", "-")]
         values.extend(row.get(metric_name, "-") for metric_name, _ in RESULT_METRICS)
-        lines.append("\t".join(value.replace("\t", " ").replace("\r", " ").replace("\n", " ") for value in values))
+        lines.append("\t".join(_plain_cell(value) for value in values))
     return "\n".join(lines)
+
+
+def render_results_csv(rows: list[dict[str, str]] | None = None) -> str:
+    result_rows = _default_result_rows(rows)
+    headers = ["File name", *[metric_name for metric_name, _ in RESULT_METRICS]]
+    buffer = StringIO(newline="")
+    writer = csv.writer(buffer)
+    writer.writerow(headers)
+    for row in result_rows:
+        values = [row.get("File name", "-")]
+        values.extend(row.get(metric_name, "-") for metric_name, _ in RESULT_METRICS)
+        writer.writerow([_plain_cell(value) for value in values])
+    return buffer.getvalue()
+
+
+def write_results_csv(rows: list[dict[str, str]] | None = None, path: str | Path | None = None) -> str:
+    if path is None:
+        file = tempfile.NamedTemporaryFile(
+            delete=False,
+            encoding="utf-8-sig",
+            mode="w",
+            newline="",
+            prefix="nz-doppelpix-results-",
+            suffix=".csv",
+        )
+        path = file.name
+    else:
+        file = open(path, "w", encoding="utf-8-sig", newline="")
+
+    with file:
+        file.write(render_results_csv(rows))
+    return str(path)
 
 
 def _candidate_directory(path: str) -> Path:
@@ -154,7 +196,7 @@ def judge(
     candidate_directory_path: str,
     enable_clip: bool,
     enable_image_reward: bool,
-) -> Iterator[tuple[str, str, str, str, str]]:
+) -> Iterator[tuple[str, str, str, str, str, str]]:
     if not reference_path:
         raise gr.Error("Please drop a Reference PNG image.")
 
@@ -166,6 +208,7 @@ def judge(
         directory = _candidate_directory(candidate_directory_path)
         png_files = _candidate_pngs(directory)
         result_rows: list[dict[str, str]] = []
+        csv_path = write_results_csv(result_rows)
         total = len(png_files)
         print(f"Auto Compare started: {total} PNG files in {directory}", flush=True)
         _console_progress(0, total, "starting")
@@ -173,7 +216,7 @@ def judge(
         for index, png_path in enumerate(png_files, start=1):
             _console_progress(index - 1, total, f"processing {png_path.name}")
             progress_note = f"Mode: Auto Compare\nProcessing {index}/{len(png_files)}: {png_path.name}"
-            yield render_results(result_rows), render_results_tsv(result_rows), progress_note, prompt, preview_png(str(png_path))
+            yield render_results(result_rows), render_results_tsv(result_rows), write_results_csv(result_rows, csv_path), progress_note, prompt, preview_png(str(png_path))
             try:
                 result = compare_images(reference_path, str(png_path), enable_clip, enable_image_reward)
                 scores_by_metric = {row.name: row.score for row in result.rows}
@@ -194,7 +237,7 @@ def judge(
                     f"Error while processing {png_path.name}: {exc}",
                 ]
                 _console_progress(index, total, f"error {png_path.name}", finished=index == total)
-            yield render_results(result_rows), render_results_tsv(result_rows), _mode_notes("Auto Compare", notes), prompt, preview_png(str(png_path))
+            yield render_results(result_rows), render_results_tsv(result_rows), write_results_csv(result_rows, csv_path), _mode_notes("Auto Compare", notes), prompt, preview_png(str(png_path))
         return
 
     if not candidate_path:
@@ -204,7 +247,7 @@ def judge(
     scores_by_metric = {row.name: row.score for row in result.rows}
     rows = [_result_row(candidate_path, scores_by_metric, auto_mode=False)]
     prompt = result.prompt_info.prompt if enable_clip or enable_image_reward else ""
-    yield render_results(rows), render_results_tsv(rows), _mode_notes("Manual Compare", result.notes), prompt, preview_png(candidate_path)
+    yield render_results(rows), render_results_tsv(rows), write_results_csv(rows), _mode_notes("Manual Compare", result.notes), prompt, preview_png(candidate_path)
 
 
 def lock_candidate_path(candidate_path: str | None) -> gr.update:
@@ -248,9 +291,10 @@ def build_demo() -> gr.Blocks:
         results = gr.HTML(render_results())
         results_tsv = gr.Textbox(value=render_results_tsv(), visible=False, elem_classes=["hidden-copy-source"])
         copy_results = gr.Button("Copy table", elem_id="copy-table-button")
+        download_csv = gr.DownloadButton("Download CSV", value=write_results_csv(), elem_id="download-csv-button")
         notes = gr.Textbox(label="Notes", lines=9, interactive=False)
         prompt = gr.Textbox(label="Extracted prompt used for prompt fidelity metrics", lines=5, interactive=False)
-        run.click(judge, [reference, candidate, candidate_directory, enable_clip, enable_image_reward], [results, results_tsv, notes, prompt, candidate_preview])
+        run.click(judge, [reference, candidate, candidate_directory, enable_clip, enable_image_reward], [results, results_tsv, download_csv, notes, prompt, candidate_preview])
         copy_results.click(
             None,
             inputs=[results_tsv],

@@ -56,6 +56,7 @@ The first view contains:
 - `Compare` button
 - Result table
 - `Copy table` button
+- `Download CSV` button
 - Notes textbox
 - Extracted prompt textbox
 
@@ -153,6 +154,18 @@ Copy feedback:
 - The button text temporarily changes to `Copied`.
 - A short button animation is applied.
 - No separate clipboard message textbox is shown.
+
+## Download CSV
+
+The `Download CSV` button downloads the latest result table as CSV.
+
+CSV format:
+
+- Same columns as `Copy table`
+- Same rows as `Copy table`
+- Columns: comma-separated with standard CSV quoting
+- Cell tabs and line breaks are replaced with spaces
+- Encoded as UTF-8 with BOM for Windows spreadsheet compatibility
 
 ## Image Preprocessing
 

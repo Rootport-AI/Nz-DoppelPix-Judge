@@ -75,6 +75,8 @@ python app.py
 
 Open the local Gradio URL shown in the terminal. The app binds to `127.0.0.1`.
 
+Result tables can be copied as TSV or downloaded as CSV. The CSV contains the same columns and rows as the copied table.
+
 ## License
 
 Apache License 2.0. See [LICENSE](LICENSE).
