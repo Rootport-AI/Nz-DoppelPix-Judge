@@ -4,6 +4,8 @@ Local Gradio Web GUI for comparing two PNG images with objective image similarit
 
 The initial target is evaluating DiT inference acceleration techniques such as TeaCache and Spectrum, but the tool is intentionally generic: drop two images into the browser and compare them.
 
+The result table can be copied as TSV or downloaded as CSV. Both exports contain the same table columns and rows shown in the UI.
+
 ## Metrics
 
 - LPIPS: lower is more similar
@@ -28,6 +30,14 @@ Prompt extraction lives in `nz_doppelpix_judge/prompt_metadata.py`, separate fro
 - `tests/`: focused regression tests
 
 Note: FID is designed for image sets, not a single image pair. For one pair this app reports a degenerate FID/Inception-feature distance. It is still useful as a consistent ranking signal across the same experiment setup, but should not be compared directly with dataset-level FID numbers from papers.
+
+## Device selection
+
+The app uses PyTorch CUDA automatically when the active virtual environment has a CUDA-enabled PyTorch build and `torch.cuda.is_available()` returns true. Otherwise it runs on CPU.
+
+- LPIPS, Experimental / FID-like, and CLIP Score use the selected PyTorch device.
+- SSIM and PSNR run on CPU through NumPy/scikit-image.
+- ImageReward is loaded through the ImageReward package and is not explicitly moved by this app.
 
 ## Setup
 
@@ -74,8 +84,6 @@ python app.py
 ```
 
 Open the local Gradio URL shown in the terminal. The app binds to `127.0.0.1`.
-
-Result tables can be copied as TSV or downloaded as CSV. The CSV contains the same columns and rows as the copied table.
 
 ## License
 

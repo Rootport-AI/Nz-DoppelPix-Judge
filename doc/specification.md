@@ -15,6 +15,27 @@ The primary use case is evaluating image degradation caused by DiT inference acc
 - Public sharing: not used
 - License: Apache License 2.0
 
+## Device Selection
+
+The runtime device is selected in `nz_doppelpix_judge/config.py`:
+
+```python
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+```
+
+Metric device behavior:
+
+- LPIPS - AlexNet uses `DEVICE`.
+- LPIPS - VGG uses `DEVICE`.
+- Experimental / FID-like uses `DEVICE`.
+- CLIP Score uses `DEVICE`.
+- SSIM - win size 7 (skimage) runs on CPU through NumPy/scikit-image.
+- SSIM - win size 11 (Wang) runs on CPU through NumPy/scikit-image.
+- PSNR runs on CPU through NumPy/scikit-image.
+- ImageReward is loaded through the ImageReward package and is not explicitly moved by this app.
+
+The app does not install or configure CUDA by itself. GPU use depends on the active virtual environment exposing a CUDA-enabled PyTorch build.
+
 ## Entry Points
 
 - `setup.bat`
@@ -158,6 +179,8 @@ Copy feedback:
 ## Download CSV
 
 The `Download CSV` button downloads the latest result table as CSV.
+
+The CSV is generated from the same in-memory result rows as the TSV used by `Copy table`. It does not include Notes, extracted prompts, preview state, image paths beyond the displayed `File name`, or other UI-only data.
 
 CSV format:
 
@@ -337,6 +360,7 @@ nz_doppelpix_judge/
     prompt_alignment.py
 tests/
   test_prompt_metadata.py
+  test_ui_results.py
 sample-images/
 doc/
   specification.md
