@@ -24,6 +24,7 @@ Prompt extraction lives in `nz_doppelpix_judge/prompt_metadata.py`, separate fro
 ## Project layout
 
 - `app.py`: minimal local entry point
+- `nz_doppelpix_judge/api.py`: HTTP API for automation jobs
 - `nz_doppelpix_judge/ui.py`: Gradio interface
 - `nz_doppelpix_judge/compare.py`: comparison workflow and result shaping
 - `nz_doppelpix_judge/image_io.py`: image loading and pair resizing
@@ -40,6 +41,28 @@ The app uses PyTorch CUDA automatically when the active virtual environment has 
 - LPIPS, Experimental / FID-like, and CLIP Score use the selected PyTorch device.
 - SSIM and PSNR run on CPU through NumPy/scikit-image.
 - ImageReward is loaded through the ImageReward package and is not explicitly moved by this app.
+
+## Automation API
+
+The app includes an HTTP API for local AI agents and scripts. The API automates the same comparison workflow as the UI without requiring browser control.
+
+Workflow:
+
+1. Create a comparison job with a Reference PNG, either a Candidate PNG or a server-local Candidate PNG directory path, and optional CLIP Score/ImageReward flags.
+2. Poll the job status until it is completed.
+3. Download the result CSV, using the same table columns and rows as the UI CSV download.
+
+API jobs also print queued, started, progress, completed, and failed status lines to the server console.
+
+Security requirement: API routes must use the same local network access control as the UI. When `local network` is off, API requests from other machines must be rejected.
+
+Primary endpoints:
+
+```text
+POST /api/compare-jobs
+GET  /api/compare-jobs/{job_id}
+GET  /api/compare-jobs/{job_id}/results.csv
+```
 
 ## Setup
 

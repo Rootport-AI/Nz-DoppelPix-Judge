@@ -52,6 +52,7 @@ The app does not install or configure CUDA by itself. GPU use depends on the act
 - `app.py`
   - Minimal Python entry point
   - Accepts `--listen` to bind to all network interfaces
+  - Installs HTTP API routes into the same FastAPI app as the Gradio UI
   - Launches Gradio with the Monochrome theme
 
 ## UI Layout
@@ -155,6 +156,228 @@ Access behavior:
 - When the `local network` checkbox is off, other network clients receive HTTP 403.
 - When the `local network` checkbox is on, other network clients are allowed.
 - The checkbox updates global process state and affects subsequent requests immediately.
+
+## HTTP API
+
+Status: implemented.
+
+Purpose:
+
+- Allow local AI agents, LAN AI agents, and simple scripts to automate image comparison without browser control.
+- Preserve the same comparison behavior, metric options, and CSV table shape as the UI.
+- Avoid browser-MCP-only automation for routine benchmark workflows.
+
+Security requirement:
+
+- All API routes must run behind the same `LocalNetworkAccessMiddleware` used by the Gradio UI.
+- There must not be an API-only bypass for local network access control.
+- The planned API must not expose an endpoint that enables `local network` access remotely.
+- When `local network` is off, API requests from machines other than the local machine must receive HTTP 403.
+- When `local network` is on, API requests from other devices on the local network may proceed.
+
+### Endpoints
+
+```text
+GET  /api/health
+GET  /api/capabilities
+POST /api/compare-jobs
+GET  /api/compare-jobs/{job_id}
+GET  /api/compare-jobs/{job_id}/results
+GET  /api/compare-jobs/{job_id}/results.csv
+```
+
+Potential later endpoint:
+
+```text
+GET  /api/compare-jobs/{job_id}/events
+```
+
+`/events` may provide Server-Sent Events for live progress. The current implementation uses polling through `GET /api/compare-jobs/{job_id}`.
+
+### Health
+
+`GET /api/health` returns a minimal JSON response for automation clients.
+
+Example response:
+
+```json
+{
+  "ok": true,
+  "app": "Nz DoppelPix Judge"
+}
+```
+
+### Capabilities
+
+`GET /api/capabilities` returns the server's available modes and metric flags.
+
+Example response:
+
+```json
+{
+  "modes": ["manual", "auto"],
+  "candidate_inputs": ["candidate_file", "candidate_directory_path"],
+  "optional_metrics": ["clip_score", "image_reward"],
+  "result_formats": ["json", "csv"],
+  "result_columns": ["File name", "..."]
+}
+```
+
+### Create Compare Job
+
+`POST /api/compare-jobs` creates and starts a comparison job.
+
+Request format: `multipart/form-data`
+
+Common fields:
+
+- `reference_file`: PNG upload. Required.
+- `enable_clip_score`: boolean-like string. Optional. Default: `false`.
+- `enable_image_reward`: boolean-like string. Optional. Default: `false`.
+
+Manual Compare fields:
+
+- `candidate_file`: PNG upload. Required for Manual Compare.
+
+Auto Compare fields:
+
+- `candidate_directory_path`: server-local directory path. Required for Auto Compare.
+
+Input rules:
+
+- Exactly one of `candidate_file` or `candidate_directory_path` must be provided.
+- `candidate_directory_path` is resolved on the machine running the server, not on the client machine.
+- Auto Compare reads only direct child `.png` files, matching UI behavior.
+- Optional metric flags default to off, matching UI behavior.
+
+Example response:
+
+```json
+{
+  "job_id": "20260614-abc123",
+  "status": "queued",
+  "mode": "auto",
+  "local_network_enabled": true
+}
+```
+
+### Job Status
+
+`GET /api/compare-jobs/{job_id}` returns job metadata and progress.
+
+Status values:
+
+- `queued`
+- `running`
+- `completed`
+- `failed`
+
+Running response example:
+
+```json
+{
+  "job_id": "20260614-abc123",
+  "status": "running",
+  "mode": "auto",
+  "total": 42,
+  "completed": 17,
+  "current_file": "sample_017.png",
+  "errors": []
+}
+```
+
+Completed response example:
+
+```json
+{
+  "job_id": "20260614-abc123",
+  "status": "completed",
+  "mode": "auto",
+  "total": 42,
+  "completed": 42,
+  "csv_url": "/api/compare-jobs/20260614-abc123/results.csv"
+}
+```
+
+### API Console Output
+
+API compare jobs write progress to the server console.
+
+Manual Compare logs:
+
+- Queued job ID, mode, total count, and optional metric flags.
+- Started job ID and candidate filename.
+- Completed or failed job ID and candidate filename.
+
+Auto Compare logs:
+
+- Queued job ID, mode, total count, and optional metric flags.
+- Started job ID and total count.
+- Text progress bar with percentage, completed count, total count, and current filename.
+- Completed job ID, total count, and error count.
+
+Example:
+
+```text
+API Compare queued job=20260614-153025-8e981651 mode=auto total=2 clip=False image_reward=False
+API Compare started job=20260614-153025-8e981651 mode=auto total=2
+API Auto Compare 20260614-153025-8e981651 [##############--------------]  50% (1/2) completed a.png
+API Auto Compare 20260614-153025-8e981651 [############################] 100% (2/2) completed b.png
+API Compare completed job=20260614-153025-8e981651 mode=auto total=2 errors=0
+```
+
+### JSON Results
+
+`GET /api/compare-jobs/{job_id}/results` returns the latest completed result rows as JSON.
+
+The response includes the same metric columns as the result table. Notes and extracted prompt are returned as separate metadata fields, not mixed into result rows.
+
+If the job is not `completed`, the endpoint returns HTTP 409.
+
+### CSV Results
+
+`GET /api/compare-jobs/{job_id}/results.csv` downloads CSV for a completed job.
+
+CSV behavior:
+
+- Same columns as the UI `Download CSV` button.
+- Same rows as the UI `Download CSV` button.
+- Does not include Notes, extracted prompt, preview state, or extra internal job metadata.
+- Uses UTF-8 with BOM for Windows spreadsheet compatibility.
+
+If the job is not `completed`, the endpoint returns HTTP 409.
+
+### UI Workflow Mapping
+
+The API replaces browser automation steps as follows:
+
+| UI automation step | API equivalent |
+| --- | --- |
+| Upload Reference PNG | `reference_file` in `POST /api/compare-jobs` |
+| Enter Candidate PNG directory path | `candidate_directory_path` in `POST /api/compare-jobs` |
+| Upload Candidate PNG | `candidate_file` in `POST /api/compare-jobs` |
+| Toggle `Enable CLIP Score` | `enable_clip_score` in `POST /api/compare-jobs` |
+| Toggle `Enable ImageReward` | `enable_image_reward` in `POST /api/compare-jobs` |
+| Press `Compare` | `POST /api/compare-jobs` |
+| Watch console until complete | Poll `GET /api/compare-jobs/{job_id}` until `status` is `completed` |
+| Press `Download CSV` | `GET /api/compare-jobs/{job_id}/results.csv` |
+
+### Error Behavior
+
+Manual Compare:
+
+- Request validation errors return HTTP 400.
+- Comparison failures mark the job as `failed`.
+- `GET /api/compare-jobs/{job_id}` exposes the failure state and error details.
+- Result JSON and CSV endpoints return HTTP 409 for failed jobs.
+
+Auto Compare:
+
+- Directory validation errors return HTTP 400.
+- Per-candidate processing errors are recorded in the result row as `error`, matching UI behavior.
+- Processing continues to the next candidate when possible.
+
+Unknown job IDs return HTTP 404.
 
 ## Result Table
 
@@ -369,6 +592,7 @@ requirements.txt
 requirements-optional.txt
 nz_doppelpix_judge/
   __init__.py
+  api.py
   config.py
   image_io.py
   network_access.py
@@ -382,6 +606,7 @@ nz_doppelpix_judge/
     perceptual.py
     prompt_alignment.py
 tests/
+  test_api.py
   test_network_access.py
   test_prompt_metadata.py
   test_ui_results.py
