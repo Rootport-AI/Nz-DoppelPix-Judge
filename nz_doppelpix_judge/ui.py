@@ -13,6 +13,7 @@ from PIL import Image
 
 from nz_doppelpix_judge.compare import compare_images
 from nz_doppelpix_judge.config import APP_TITLE
+from nz_doppelpix_judge.network_access import NETWORK_ACCESS
 
 
 RESULT_METRICS = [
@@ -30,6 +31,12 @@ RESULT_METRICS = [
 
 
 UI_CSS = """
+.app-header { align-items: center; gap: 1rem; margin-bottom: 0.75rem; }
+.app-header-title h1 { margin: 0; }
+.app-header-network { align-items: flex-end; justify-content: center; }
+.app-header-network > .gap { align-items: flex-end; }
+#local-network-toggle { width: auto; min-width: 0; }
+#local-network-toggle label { margin: 0; white-space: nowrap; }
 .preview-card img { width: 100%; max-height: 360px; object-fit: contain; display: block; }
 .preview-name { margin-top: 0.5rem; font-size: 0.9rem; opacity: 0.75; overflow-wrap: anywhere; }
 .preview-empty, .preview-error { min-height: 220px; display: flex; align-items: center; justify-content: center; opacity: 0.7; border: 1px dashed var(--border-color-primary); border-radius: 8px; padding: 1rem; }
@@ -269,9 +276,27 @@ def candidate_upload_spacer_visibility(candidate_directory_path: str) -> gr.upda
     return gr.update(value=candidate_upload_spacer(candidate_directory_path), visible=bool(candidate_directory_path.strip()))
 
 
+def set_local_network_enabled(enabled: bool) -> None:
+    NETWORK_ACCESS.set_local_network_enabled(enabled)
+
+
+def get_local_network_enabled() -> bool:
+    return NETWORK_ACCESS.is_local_network_enabled()
+
+
 def build_demo() -> gr.Blocks:
     with gr.Blocks(title=APP_TITLE) as demo:
-        gr.Markdown(f"# {APP_TITLE}")
+        with gr.Row(equal_height=False, elem_classes=["app-header"]):
+            with gr.Column(scale=1, min_width=240, elem_classes=["app-header-title"]):
+                gr.Markdown(f"# {APP_TITLE}")
+            with gr.Column(scale=0, min_width=150, elem_classes=["app-header-network"]):
+                local_network = gr.Checkbox(
+                    label="local network",
+                    value=NETWORK_ACCESS.is_local_network_enabled(),
+                    container=False,
+                    min_width=120,
+                    elem_id="local-network-toggle",
+                )
         with gr.Row():
             with gr.Column():
                 gr.Textbox(label="Reference PNG path (Coming soon)", value="", interactive=False, placeholder="Reserved for future use")
@@ -324,4 +349,6 @@ def build_demo() -> gr.Blocks:
         candidate.change(lock_candidate_path, candidate, candidate_directory)
         candidate_directory.change(lock_candidate_upload, candidate_directory, candidate)
         candidate_directory.change(candidate_upload_spacer_visibility, candidate_directory, candidate_spacer)
+        local_network.change(set_local_network_enabled, local_network, None)
+        demo.load(get_local_network_enabled, outputs=local_network)
     return demo

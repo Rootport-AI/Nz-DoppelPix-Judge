@@ -6,6 +6,8 @@ The initial target is evaluating DiT inference acceleration techniques such as T
 
 The result table can be copied as TSV or downloaded as CSV. Both exports contain the same table columns and rows shown in the UI.
 
+`run.bat` starts the app with `--listen`, so the server binds to all network interfaces. The UI's `local network` checkbox controls whether devices other than the local machine may access the app. It is off by default.
+
 ## Metrics
 
 - LPIPS: lower is more similar
@@ -77,13 +79,21 @@ Recommended on Windows:
 run.bat
 ```
 
+`run.bat` uses `python app.py --listen` and opens `http://127.0.0.1:7870` on the local machine.
+
 Manual run:
 
 ```powershell
 python app.py
 ```
 
-Open the local Gradio URL shown in the terminal. The app binds to `127.0.0.1`.
+To manually enable network binding:
+
+```powershell
+python app.py --listen
+```
+
+Open the local Gradio URL shown in the terminal. Without `--listen`, the app binds to `127.0.0.1`; with `--listen`, it binds to `0.0.0.0` and the `local network` checkbox controls access from other devices.
 
 ## License
 

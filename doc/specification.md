@@ -10,7 +10,9 @@ The primary use case is evaluating image degradation caused by DiT inference acc
 
 - Platform target: local Windows execution
 - Web UI: Gradio
-- Host: `127.0.0.1`
+- Default host for `python app.py`: `127.0.0.1`
+- Listen host for `python app.py --listen`: `0.0.0.0`
+- `run.bat` host behavior: always starts `python app.py --listen`
 - Port: `7870`
 - Public sharing: not used
 - License: Apache License 2.0
@@ -44,10 +46,12 @@ The app does not install or configure CUDA by itself. GPU use depends on the act
   - Installs `requirements-optional.txt` unless `--core-only` is passed
 - `run.bat`
   - Starts the app
+  - Passes `--listen`
   - Waits until the local server responds
   - Opens `http://127.0.0.1:7870`
 - `app.py`
   - Minimal Python entry point
+  - Accepts `--listen` to bind to all network interfaces
   - Launches Gradio with the Monochrome theme
 
 ## UI Layout
@@ -71,6 +75,10 @@ The first view contains:
 - Candidate preview
   - Manual mode: shows uploaded Candidate PNG
   - Auto mode: shows the PNG currently being processed
+- `local network` checkbox
+  - Off by default
+  - When off, requests from machines other than the local machine are rejected
+  - When on, requests from other devices on the local network are allowed
 - Prompt fidelity metrics group
   - `Enable CLIP Score`
   - `Enable ImageReward`
@@ -133,6 +141,20 @@ Manual and Auto modes are mutually exclusive through UI behavior:
 - If a Candidate PNG is uploaded, the Candidate PNG directory path textbox becomes non-interactive.
 - If Candidate PNG directory path is non-empty, the Candidate PNG upload area becomes non-interactive and hidden.
 - The user must clear the uploaded Candidate PNG or clear the Candidate PNG directory path to switch modes.
+
+## Local Network Access
+
+The process can bind to all interfaces through the `--listen` command-line argument. `run.bat` always uses this mode.
+
+Binding to all interfaces does not by itself allow other devices to use the app. Incoming HTTP requests pass through `LocalNetworkAccessMiddleware` in `nz_doppelpix_judge/network_access.py`.
+
+Access behavior:
+
+- The local machine is always allowed.
+- The local machine includes loopback addresses and the machine's own resolved interface addresses.
+- When the `local network` checkbox is off, other network clients receive HTTP 403.
+- When the `local network` checkbox is on, other network clients are allowed.
+- The checkbox updates global process state and affects subsequent requests immediately.
 
 ## Result Table
 
@@ -349,6 +371,7 @@ nz_doppelpix_judge/
   __init__.py
   config.py
   image_io.py
+  network_access.py
   prompt_metadata.py
   compare.py
   ui.py
@@ -359,6 +382,7 @@ nz_doppelpix_judge/
     perceptual.py
     prompt_alignment.py
 tests/
+  test_network_access.py
   test_prompt_metadata.py
   test_ui_results.py
 sample-images/
