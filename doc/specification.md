@@ -2,7 +2,7 @@
 
 ## Overview
 
-Nz DoppelPix Judge is a local-only Gradio Web GUI for comparing PNG images with objective similarity and prompt-fidelity metrics.
+Nz DoppelPix Judge is a local-first Gradio Web GUI and HTTP API for comparing PNG images with objective similarity and prompt-fidelity metrics.
 
 The primary use case is evaluating image degradation caused by DiT inference acceleration techniques such as TeaCache and Spectrum. The tool is also usable as a generic two-image or one-to-many PNG comparison utility.
 
@@ -171,7 +171,7 @@ Security requirement:
 
 - All API routes must run behind the same `LocalNetworkAccessMiddleware` used by the Gradio UI.
 - There must not be an API-only bypass for local network access control.
-- The planned API must not expose an endpoint that enables `local network` access remotely.
+- The HTTP API must not expose an endpoint that enables `local network` access remotely.
 - When `local network` is off, API requests from machines other than the local machine must receive HTTP 403.
 - When `local network` is on, API requests from other devices on the local network may proceed.
 

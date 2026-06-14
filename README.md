@@ -28,6 +28,7 @@ Prompt extraction lives in `nz_doppelpix_judge/prompt_metadata.py`, separate fro
 - `nz_doppelpix_judge/ui.py`: Gradio interface
 - `nz_doppelpix_judge/compare.py`: comparison workflow and result shaping
 - `nz_doppelpix_judge/image_io.py`: image loading and pair resizing
+- `nz_doppelpix_judge/network_access.py`: local machine / local network access control
 - `nz_doppelpix_judge/prompt_metadata.py`: PNG metadata prompt extraction
 - `nz_doppelpix_judge/metrics/`: LPIPS, SSIM, FID, PSNR, CLIP Score, and ImageReward implementations
 - `tests/`: focused regression tests
